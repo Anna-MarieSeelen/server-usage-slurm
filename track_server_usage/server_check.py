@@ -33,6 +33,8 @@ import datetime
 #Max Mem used        : 271.09G (cn136)
 #Max Disk Write      : 81.92K (cn136)
 #Max Disk Read       : 26.83M (cn136)
+#TODO: also extract the date so you can do these stuff by month
+#TODO: add option to run the code just for a certain month
 
 # functions
 def parse_input(slurm_record_filepath: str) -> dict:
