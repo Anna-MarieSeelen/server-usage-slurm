@@ -22,39 +22,55 @@ Usage: python3 massql_search_spectra_with_motif.py *path_to_file_with_motifs_que
 
 # import statements
 from sys import argv
-import subprocess
 import os.path
 import re
-import string
 import datetime
 
 #TODO: assumptions RAM and CPUs are always int. Ram is always in GB, the records started in 2024
+#TODO: still extract this from the scripts: % User (Computation): 97.88% etc.
+#% System (I/O)      :  2.12%
+#Mem reserved        : 500G
+#Max Mem used        : 271.09G (cn136)
+#Max Disk Write      : 81.92K (cn136)
+#Max Disk Read       : 26.83M (cn136)
 
 # functions
 def parse_input(slurm_record_filepath: str) -> dict:
     with open(slurm_record_filepath, "r") as lines_slurm_file:
         filetext = lines_slurm_file.read()
         JobID = re.search(r'JobId=(.*) ', filetext).group(1)
-        RAM = int(re.search(r'mem=(\d*)', filetext).group(1))
+        RAM = int(re.search(r'mem=(\d*)([A-Z]+)', filetext).group(1))
+        RAM_unit=re.search(r'mem=(\d*)([A-Z]+)', filetext).group(2)
         CPUs = int(re.search(r'NumCPUs=(\d*)', filetext).group(1))
-        run_time=0
-        if re.search(r'RunTime=(\d+)-(\d*):(\d*):(\d*)', filetext) is None:
-            run_time_hours = int(re.search(r'RunTime=(\d*):(\d*):(\d*)', filetext).group(1))
-            run_time += run_time_hours
-            run_time_minutes = int(re.search(r'RunTime=(\d*):(\d*):(\d*)', filetext).group(2))
-            run_time += (run_time_minutes / 60)
-            run_time_seconds = int(re.search(r'RunTime=(\d*):(\d*):(\d*)', filetext).group(3))
-            run_time += (run_time_seconds / 3600)
+        RunTime=re.search(r'RunTime=((\d*)-?(\d*):(\d*):(\d*))', filetext).group(1)
+        UserID=re.search(r'UserId=([a-z]+)\(.*\)', filetext).group(1)
+        WorkDir=re.search(r'WorkDir=(.*)\n', filetext).group(1)
+        Efficiency=re.search(r'Used CPU time       : (.*) \(efficiency:  ([+-]?([0-9]*[.])?[0-9]+)%\)', filetext).group(2)
+
+        return JobID, RAM, CPUs, RunTime, UserID, WorkDir, Efficiency, RAM_unit
+def recalculate_unit_to_GB(data):
+    return None
+
+
+def recalculate_time(RunTime):
+        run_time_in_hours=0
+        if re.search(r'(\d+)-(\d*):(\d*):(\d*)', RunTime) is None:
+            run_time_hours = int(re.search(r'(\d*):(\d*):(\d*)', RunTime).group(1))
+            run_time_in_hours += run_time_hours
+            run_time_minutes = int(re.search(r'(\d*):(\d*):(\d*)', RunTime).group(2))
+            run_time_in_hours += (run_time_minutes / 60)
+            run_time_seconds = int(re.search(r'(\d*):(\d*):(\d*)', RunTime).group(3))
+            run_time_in_hours += (run_time_seconds / 3600)
         else:
-            run_time_days=int(re.search(r'RunTime=(\d+)-(\d*):(\d*):(\d*)', filetext).group(1))
-            run_time+=(24*run_time_days)
-            run_time_hours = int(re.search(r'RunTime=(\d*)-(\d*):(\d*):(\d*)', filetext).group(2))
-            run_time += run_time_hours
-            run_time_minutes = int(re.search(r'RunTime=(\d*)-(\d*):(\d*):(\d*)', filetext).group(3))
-            run_time += (run_time_minutes / 60)
-            run_time_seconds = int(re.search(r'RunTime=(\d*)-(\d*):(\d*):(\d*)', filetext).group(4))
-            run_time += (run_time_seconds / 3600)
-    return (JobID,RAM,CPUs,run_time)
+            run_time_days=int(re.search(r'(\d+)-(\d*):(\d*):(\d*)', RunTime).group(1))
+            run_time_in_hours+=(24*run_time_days)
+            run_time_hours = int(re.search(r'(\d*)-(\d*):(\d*):(\d*)', RunTime).group(2))
+            run_time_in_hours += run_time_hours
+            run_time_minutes = int(re.search(r'(\d*)-(\d*):(\d*):(\d*)', RunTime).group(3))
+            run_time_in_hours += (run_time_minutes / 60)
+            run_time_seconds = int(re.search(r'(\d*)-(\d*):(\d*):(\d*)', RunTime).group(4))
+            run_time_in_hours += (run_time_seconds / 3600)
+        return run_time_in_hours
 
 
 
@@ -73,11 +89,12 @@ def main():
     for slurm_record in dir_with_slurm:
         slurm_record_filepath=os.path.join(path_to_record_dir,slurm_record)
         #parse input
+        JobID, RAM, CPUs, RunTime = parse_input(slurm_record_filepath)
         #recalculate run to hours
-        JobID,RAM,CPUs,run_time=parse_input(slurm_record_filepath)
+        run_time_in_hours=recalculate_time(RunTime)
         #calculate the times
-        RAM_time+=RAM*run_time
-        CPU_time+=CPUs*run_time
+        RAM_time+=RAM*run_time_in_hours
+        CPU_time+=CPUs*run_time_in_hours
     now = datetime.datetime.now()
     start_of_year=datetime.datetime(2024, 1, 1)
     hours=(now-start_of_year).total_seconds()//3600
