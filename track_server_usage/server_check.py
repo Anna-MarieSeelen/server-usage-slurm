@@ -56,37 +56,34 @@ def parse_input(slurm_record_filepath: str) -> dict:
             run_time += (run_time_seconds / 3600)
     return (JobID,RAM,CPUs,run_time)
 
+
+
 def main():
     """Main function of this module"""
     # check if the directory has only .record files
     # step 1: parse the file and put accession num, organism name and dna sequence in a nested dict
-    dir_with_slurm=list(os.listdir(argv[1]))
+    path_to_record_dir=os.path.abspath(argv[1])
+    dir_with_slurm=list(os.listdir(path_to_record_dir))
     print(dir_with_slurm)
     RAM_time=0
     CPU_time=0
     #dict_with_slurm_records = {}
     #for record in os.listdir():
     slurm_record_filepath=argv[1]
-    for slurm_record_filepath in dir_with_slurm:
+    for slurm_record in dir_with_slurm:
+        slurm_record_filepath=os.path.join(path_to_record_dir,slurm_record)
+        #parse input
+        #recalculate run to hours
         JobID,RAM,CPUs,run_time=parse_input(slurm_record_filepath)
         #calculate the times
         RAM_time+=RAM*run_time
         CPU_time+=CPUs*run_time
-        now = datetime.datetime.now()
-        start_of_year=datetime.datetime(2024, 1, 1)
-        hours=(now-start_of_year).total_seconds()//3600
-        average_RAM=int(RAM_time/hours)
-        average_CPU=int(CPU_time/hours)
-        print(f"average RAM usage {average_RAM},average CPU usage {average_CPU}")
-    # step 2: calculate the GC content and return a nested list with gc accession num, organism name, gc content and lenght
-    #long_list = cal_GC_content(gb_dict)
-    # step 3: sort the nested list based in accending order of GC content
-    #sorted_list = sort_nested_list((long_list))
-    # step 4: output the nested list to a tab delimited file
-    #to_output_tab_file(sorted_list)
-    # step 5: output the contents of the nested dict in ascending order of GC content to a fasta file
-    #to_output_fasta_file(gb_dict, sorted_list)
-
+    now = datetime.datetime.now()
+    start_of_year=datetime.datetime(2024, 1, 1)
+    hours=(now-start_of_year).total_seconds()//3600
+    average_RAM=int(RAM_time/hours)
+    average_CPU=int(CPU_time/hours)
+    print(f"average RAM usage {average_RAM},average CPU usage {average_CPU}")
 
 if __name__ == "__main__":
     main()
