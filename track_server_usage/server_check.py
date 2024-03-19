@@ -58,8 +58,10 @@ def parse_input(slurm_record_filepath: str) -> dict:
 
 def main():
     """Main function of this module"""
+    # check if the directory has only .record files
     # step 1: parse the file and put accession num, organism name and dna sequence in a nested dict
     dir_with_slurm=list(os.listdir(argv[1]))
+    print(dir_with_slurm)
     RAM_time=0
     CPU_time=0
     #dict_with_slurm_records = {}
@@ -75,7 +77,7 @@ def main():
         hours=(now-start_of_year).total_seconds()//3600
         average_RAM=int(RAM_time/hours)
         average_CPU=int(CPU_time/hours)
-    print(f"average RAM usage {average_RAM},average CPU usage {average_CPU}")
+        print(f"average RAM usage {average_RAM},average CPU usage {average_CPU}")
     # step 2: calculate the GC content and return a nested list with gc accession num, organism name, gc content and lenght
     #long_list = cal_GC_content(gb_dict)
     # step 3: sort the nested list based in accending order of GC content
