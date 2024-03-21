@@ -26,7 +26,7 @@ import os.path
 import re
 import datetime
 
-#TODO: assumptions RAM and CPUs are always int. Ram is always in GB, the records started in 2024
+#TODO: assumptions RAM and CPUs are always int. requested Ram is always in GB, the records started in 2024
 #TODO: still extract this from the scripts: % User (Computation): 97.88% etc.
 #% System (I/O)      :  2.12%
 #Mem reserved        : 500G
@@ -35,7 +35,8 @@ import datetime
 #Max Disk Read       : 26.83M (cn136)
 #TODO: also extract the date so you can do these stuff by month
 #TODO: add option to run the code just for a certain month
-
+#TODO: sometimes when you have a failed thing you don't have effieciency
+# TODO: also have a way to extarct runs out of there that are below 10 seconds
 # functions
 def parse_input(slurm_record_filepath: str) -> dict:
     with open(slurm_record_filepath, "r") as lines_slurm_file:
@@ -48,11 +49,14 @@ def parse_input(slurm_record_filepath: str) -> dict:
         UserID=re.search(r'UserId=([a-z]+)\(.*\)', filetext).group(1)
         WorkDir=re.search(r'WorkDir=(.*)\n', filetext).group(1)
         Efficiency=re.search(r'Used CPU time       : (.*) \(efficiency:  ([+-]?([0-9]*[.])?[0-9]+)%\)', filetext).group(2)
-
+        %_Computation=re.search(r'User\(Computation\): (\d+)', filetext).group(1)
         return JobID, RAM, CPUs, RunTime, UserID, WorkDir, Efficiency, RAM_unit
-def recalculate_unit_to_GB(data):
+def recalculate_MB_to_GB(MB):
+    GB = MB / 1024
     return None
-
+def recalculate_KB_to_GB(KB):
+    GB = KB / (1024*1024)
+    return None
 
 def recalculate_time(RunTime):
         run_time_in_hours=0
@@ -73,8 +77,6 @@ def recalculate_time(RunTime):
             run_time_seconds = int(re.search(r'(\d*)-(\d*):(\d*):(\d*)', RunTime).group(4))
             run_time_in_hours += (run_time_seconds / 3600)
         return run_time_in_hours
-
-
 
 def main():
     """Main function of this module"""
@@ -100,9 +102,9 @@ def main():
     now = datetime.datetime.now()
     start_of_year=datetime.datetime(2024, 1, 1)
     hours=(now-start_of_year).total_seconds()//3600
-    average_RAM=int(RAM_time/hours)
-    average_CPU=int(CPU_time/hours)
-    print(f"average RAM usage {average_RAM},average CPU usage {average_CPU}")
+    average_RAM=RAM_time/hours
+    average_CPU=CPU_time/hours
+    print(f"average RAM usage {average_RAM:.2f},average CPU usage {average_CPU:.2f}")
 
 if __name__ == "__main__":
     main()
