@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Author: Anna-Marie Seelen
-Studentnumber:1008970
 Description: Takes a file with MassQL queries, searches for spectra in json file that contain the queries and writes
 these spectra to individual files in mgf-style.
 Usage: python3 massql_search_spectra_with_motif.py *path_to_file_with_motifs_queries*
@@ -25,6 +24,8 @@ from sys import argv
 import os.path
 import re
 import datetime
+import pandas as pd
+import numpy as np
 
 #TODO: assumptions RAM and CPUs are always int. requested Ram is always in GB, the records started in 2024
 #TODO: still extract this from the scripts: % User (Computation): 97.88% etc.
@@ -38,27 +39,76 @@ import datetime
 #TODO: sometimes when you have a failed thing you don't have effieciency
 # TODO: also have a way to extarct runs out of there that are below 10 seconds
 # functions
-def parse_input(slurm_record_filepath: str) -> dict:
+def parse_input_file(slurm_record_filepath: str) -> tuple:
     with open(slurm_record_filepath, "r") as lines_slurm_file:
         filetext = lines_slurm_file.read()
         JobID = re.search(r'JobId=(.*) ', filetext).group(1)
-        RAM = int(re.search(r'mem=(\d*)([A-Z]+)', filetext).group(1))
-        RAM_unit=re.search(r'mem=(\d*)([A-Z]+)', filetext).group(2)
-        CPUs = int(re.search(r'NumCPUs=(\d*)', filetext).group(1))
-        RunTime=re.search(r'RunTime=((\d*)-?(\d*):(\d*):(\d*))', filetext).group(1)
+        JobName = re.search(r'JobName=(.*)', filetext).group(1)
+        requested_CPUs = int(re.search(r'NumCPUs=(\d*)', filetext).group(1))
         UserID=re.search(r'UserId=([a-z]+)\(.*\)', filetext).group(1)
         WorkDir=re.search(r'WorkDir=(.*)\n', filetext).group(1)
-        Efficiency=re.search(r'Used CPU time       : (.*) \(efficiency:  ([+-]?([0-9]*[.])?[0-9]+)%\)', filetext).group(2)
-        %_Computation=re.search(r'User\(Computation\): (\d+)', filetext).group(1)
-        return JobID, RAM, CPUs, RunTime, UserID, WorkDir, Efficiency, RAM_unit
+        # Efficiency sometimes is not given if the code has not run long enough
+        if re.search(r'Used CPU time       : (.*) \(efficiency:[\s]*(([0-9]*[.])?[0-9]+)%\)', filetext) is not None:
+            Efficiency = float(re.search(r'Used CPU time       : (.*) \(efficiency:[\s]*(([0-9]*[.])?[0-9]+)%\)', filetext).group(2))
+        else:
+            Efficiency = None
+
+        CPU_Computation = float(
+            re.search(r'User \(Computation\):[\s]+(([0-9]*[.])?[0-9]+)%', filetext).group(1))
+        CPU_IO = float(re.search(r'System \(I\/O\)      :[\s]+(([0-9]*[.])?[0-9]+)%', filetext).group(1))
+    return (JobID, JobName, requested_CPUs,UserID, WorkDir, Efficiency, CPU_Computation, CPU_IO)
+
+def parse_input_file_for_recalculation(slurm_record_filepath: str) -> list:
+    with open(slurm_record_filepath, "r") as lines_slurm_file:
+        filetext = lines_slurm_file.read()
+
+        requested_RAM = int(re.search(r'mem=(\d*)([A-Z]+)', filetext).group(1))
+        RAM_unit = re.search(r'mem=(\d*)([A-Z]+)', filetext).group(2)
+
+        Max_RAM_used = float(re.search(r'Max Mem used        : (([0-9]*[.])?[0-9]+)([A-Z]+)', filetext).group(1))
+        Max_RAM_used_unit = re.search(r'Max Mem used        : (([0-9]*[.])?[0-9]+)([A-Z]+)', filetext).group(3)
+
+        Max_Disk_Write = float(re.search(r'Max Disk Write      : (([0-9]*[.])?[0-9]+)([A-Z]*)', filetext).group(1))
+        # If Max_Disk_Write is zero then it has no unit
+        if re.search(r'Max Disk Write      : (([0-9]*[.])?[0-9]+)([A-Z]+)', filetext) is not None:
+            Max_Disk_write_unit = re.search(r'Max Disk Write      : (([0-9]*[.])?[0-9]+)([A-Z]+)', filetext).group(
+                3)
+        else:
+            Max_Disk_write_unit = None
+
+        Max_Disk_Read = float(re.search(r'Max Disk Read       : (([0-9]*[.])?[0-9]+)([A-Z]*)', filetext).group(1))
+        # If Max_Disk_Read is zero then it has no unit
+        if re.search(r'Max Disk Read       : (([0-9]*[.])?[0-9]+)([A-Z]+)', filetext) is not None:
+            Max_Disk_read_unit = re.search(r'Max Disk Read       : (([0-9]*[.])?[0-9]+)([A-Z]+)', filetext).group(3)
+        else:
+            Max_Disk_read_unit = None
+    return [(requested_RAM,RAM_unit),(Max_RAM_used,Max_RAM_used_unit),(Max_Disk_Write,Max_Disk_write_unit),(Max_Disk_Read,Max_Disk_read_unit)]
+
+def parse_input_file_time_parameters(slurm_record_filepath: str) -> tuple:
+    with open(slurm_record_filepath, "r") as lines_slurm_file:
+        filetext = lines_slurm_file.read()
+        SubmitTime = re.search(r'SubmitTime=(.*)T(.*) ', filetext).group(1)
+        RunTime = re.search(r'RunTime=((\d*)-?(\d*):(\d*):(\d*))', filetext).group(1)
+    return(SubmitTime,RunTime)
+
+def recalculate_to_GB(num,unit):
+    if unit == 'M':
+        num_in_GB=recalculate_MB_to_GB(num)
+    elif unit == 'K':
+        num_in_GB=recalculate_MB_to_GB(num)
+    # if unit is None or if unit is G nothing needs to happen
+    else:
+        num_in_GB=num
+    return num_in_GB
+
 def recalculate_MB_to_GB(MB):
     GB = MB / 1024
-    return None
+    return GB
 def recalculate_KB_to_GB(KB):
     GB = KB / (1024*1024)
-    return None
+    return GB
 
-def recalculate_time(RunTime):
+def recalculate_time_to_hours(RunTime):
         run_time_in_hours=0
         if re.search(r'(\d+)-(\d*):(\d*):(\d*)', RunTime) is None:
             run_time_hours = int(re.search(r'(\d*):(\d*):(\d*)', RunTime).group(1))
@@ -85,26 +135,54 @@ def main():
     path_to_record_dir=os.path.abspath(argv[1])
     dir_with_slurm=list(os.listdir(path_to_record_dir))
     print(dir_with_slurm)
-    RAM_time=0
-    CPU_time=0
+    total_requested_RAM_time=0
+    total_requested_CPU_time=0
     #dict_with_slurm_records = {}
     #for record in os.listdir():
     slurm_record_filepath=argv[1]
+    list_for_df=[]
     for slurm_record in dir_with_slurm:
+        dict_param_of_run={}
+        print(slurm_record)
+
         slurm_record_filepath=os.path.join(path_to_record_dir,slurm_record)
-        #parse input
-        JobID, RAM, CPUs, RunTime = parse_input(slurm_record_filepath)
+        #parse input that doesn't need recalculation
+        JobID, JobName, requested_CPUs,UserID, WorkDir, Efficiency, CPU_Computation, CPU_IO = parse_input_file(slurm_record_filepath)
+        dict_param_of_run = {}
+        #parse input that needs to be recalculated to GB
+        list_of_param_and_unit=parse_input_file_for_recalculation(slurm_record_filepath)
+        #parse input that needs to be recalculated to time
+        SubmitTime,RunTime=parse_input_file_time_parameters(slurm_record_filepath)
+
+        #recalculations GB
+        for (parameter,unit) in list_of_param_and_unit:
+            parameter_in_GB=recalculate_to_GB(parameter, unit)
+            list_param_of_run.append(parameter_in_GB)
+
+        #recalculations time
+        RunTime = recalculate_time_to_hours(RunTime)
+        SubmitTime = datetime.datetime.strptime(SubmitTime, '%Y-%m-%d')
+        list_param_of_run.append(RunTime)
+        list_param_of_run.append(SubmitTime)
+        #add it to the dict
+        print(list_param_of_run)
+        for i in list_param_of_run:
+            print(i)
+        # add it to the list of dict
+        list_for_df.append(dict_param_of_run)
         #recalculate run to hours
-        run_time_in_hours=recalculate_time(RunTime)
+        #run_time_in_hours=recalculate_time_to_hours(RunTime)
         #calculate the times
-        RAM_time+=RAM*run_time_in_hours
-        CPU_time+=CPUs*run_time_in_hours
-    now = datetime.datetime.now()
-    start_of_year=datetime.datetime(2024, 1, 1)
-    hours=(now-start_of_year).total_seconds()//3600
-    average_RAM=RAM_time/hours
-    average_CPU=CPU_time/hours
-    print(f"average RAM usage {average_RAM:.2f},average CPU usage {average_CPU:.2f}")
+        #total_requested_RAM_time+=requested_RAM*run_time_in_hours
+        #total_requested_CPU_time+=requested_CPUs*run_time_in_hours
+    df = pd.DataFrame(list_for_df)
+    print(df)
+    # now = datetime.datetime.now()
+    # start_of_year=datetime.datetime(2024, 1, 1)
+    # hours=(now-start_of_year).total_seconds()//3600
+    # average_requested_RAM=total_requested_RAM_time/hours
+    # average_requested_CPU=total_requested_CPU_time/hours
+    # print(f"average RAM usage {average_requested_RAM:.2f},average CPU usage {average_requested_CPU:.2f}")
 
 if __name__ == "__main__":
     main()
