@@ -67,6 +67,7 @@ def main():
         list_for_df.append(dict_param_of_run)
 
     df = pd.DataFrame(list_for_df)
+    print(df)
     date_of_start_month, date_of_end_month = make_dates_from_months(3, 3, 2024)
     total_requested_RAM_time = average_RAM_usage(df, date_of_start_month, date_of_end_month)
     total_requested_CPU_time = average_CPU_usage(df, date_of_start_month, date_of_end_month)
@@ -74,6 +75,14 @@ def main():
     average_requested_RAM = total_requested_RAM_time / hours
     average_requested_CPU = total_requested_CPU_time / hours
     print(f"average RAM usage {average_requested_RAM:.2f},average CPU usage {average_requested_CPU:.2f}")
+    #also do this for all users
+    for i in users:
+        mask = df['UserID'].isin(i)
+        df_users = df[mask]
+
+
+
+
 
 if __name__ == "__main__":
     main()
