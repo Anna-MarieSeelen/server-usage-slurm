@@ -25,19 +25,8 @@ import os.path
 import re
 import datetime
 import pandas as pd
-import numpy as np
+import glob
 
-#TODO: assumptions RAM and CPUs are always int. requested Ram is always in GB, the records started in 2024
-#TODO: still extract this from the scripts: % User (Computation): 97.88% etc.
-#% System (I/O)      :  2.12%
-#Mem reserved        : 500G
-#Max Mem used        : 271.09G (cn136)
-#Max Disk Write      : 81.92K (cn136)
-#Max Disk Read       : 26.83M (cn136)
-#TODO: also extract the date so you can do these stuff by month
-#TODO: add option to run the code just for a certain month
-#TODO: sometimes when you have a failed thing you don't have effieciency
-# TODO: also have a way to extarct runs out of there that are below 10 seconds
 # functions
 def parse_input_file(slurm_record_filepath: str) -> tuple:
     with open(slurm_record_filepath, "r") as lines_slurm_file:
@@ -82,7 +71,7 @@ def parse_input_file_for_recalculation(slurm_record_filepath: str) -> list:
             Max_Disk_read_unit = re.search(r'Max Disk Read       : (([0-9]*[.])?[0-9]+)([A-Z]+)', filetext).group(3)
         else:
             Max_Disk_read_unit = None
-    return [(requested_RAM,RAM_unit),(Max_RAM_used,Max_RAM_used_unit),(Max_Disk_Write,Max_Disk_write_unit),(Max_Disk_Read,Max_Disk_read_unit)]
+    return (requested_RAM,RAM_unit,Max_RAM_used,Max_RAM_used_unit,Max_Disk_Write,Max_Disk_write_unit,Max_Disk_Read,Max_Disk_read_unit)
 
 def parse_input_file_time_parameters(slurm_record_filepath: str) -> tuple:
     with open(slurm_record_filepath, "r") as lines_slurm_file:
@@ -130,59 +119,46 @@ def recalculate_time_to_hours(RunTime):
 
 def main():
     """Main function of this module"""
-    # check if the directory has only .record files
     # step 1: parse the file and put accession num, organism name and dna sequence in a nested dict
     path_to_record_dir=os.path.abspath(argv[1])
     dir_with_slurm=list(os.listdir(path_to_record_dir))
-    print(dir_with_slurm)
-    total_requested_RAM_time=0
-    total_requested_CPU_time=0
-    #dict_with_slurm_records = {}
-    #for record in os.listdir():
-    slurm_record_filepath=argv[1]
+
+    # check if the directory has only .record files
+    files_with_record_ext = glob.glob(os.path.join(path_to_record_dir,'*.record'))
+    if len(files_with_record_ext) != len(dir_with_slurm):
+        raise ValueError('There are not only .record files in this directory. You are probably not in the right directory')
+
     list_for_df=[]
     for slurm_record in dir_with_slurm:
-        dict_param_of_run={}
-        print(slurm_record)
-
         slurm_record_filepath=os.path.join(path_to_record_dir,slurm_record)
-        #parse input that doesn't need recalculation
+        #parse input that doesn't need recalculation and add to dict
         JobID, JobName, requested_CPUs,UserID, WorkDir, Efficiency, CPU_Computation, CPU_IO = parse_input_file(slurm_record_filepath)
-        dict_param_of_run = {}
+        dict_param_of_run = {'JobID': JobID,
+                             'JobName': JobName,
+                             'requested_CPUs': requested_CPUs,
+                             'UserID': UserID,
+                             'WorkDir': WorkDir,
+                             'Efficiency': Efficiency,
+                             'CPU_Computation': CPU_Computation,
+                             'CPU_IO': CPU_IO}
         #parse input that needs to be recalculated to GB
-        list_of_param_and_unit=parse_input_file_for_recalculation(slurm_record_filepath)
+        requested_RAM,RAM_unit,Max_RAM_used,Max_RAM_used_unit,Max_Disk_Write,Max_Disk_write_unit,Max_Disk_Read,Max_Disk_read_unit=parse_input_file_for_recalculation(slurm_record_filepath)
+        #recalculate to GB and add to dict
+        dict_param_of_run['requested_RAM_GB'] = recalculate_to_GB(requested_RAM, RAM_unit)
+        dict_param_of_run['Max_RAM_used_GB'] = recalculate_to_GB(Max_RAM_used, Max_RAM_used_unit)
+        dict_param_of_run['Max_Disk_Write_GB'] = recalculate_to_GB(Max_Disk_Write, Max_Disk_write_unit)
+        dict_param_of_run['Max_Disk_Read_GB'] = recalculate_to_GB(Max_Disk_Read, Max_Disk_read_unit)
+
         #parse input that needs to be recalculated to time
         SubmitTime,RunTime=parse_input_file_time_parameters(slurm_record_filepath)
-
-        #recalculations GB
-        for (parameter,unit) in list_of_param_and_unit:
-            parameter_in_GB=recalculate_to_GB(parameter, unit)
-            list_param_of_run.append(parameter_in_GB)
-
         #recalculations time
-        RunTime = recalculate_time_to_hours(RunTime)
-        SubmitTime = datetime.datetime.strptime(SubmitTime, '%Y-%m-%d')
-        list_param_of_run.append(RunTime)
-        list_param_of_run.append(SubmitTime)
-        #add it to the dict
-        print(list_param_of_run)
-        for i in list_param_of_run:
-            print(i)
-        # add it to the list of dict
+        dict_param_of_run['RunTime_hours'] = recalculate_time_to_hours(RunTime)
+        dict_param_of_run['SubmitTime'] = datetime.datetime.strptime(SubmitTime, '%Y-%m-%d')
+
         list_for_df.append(dict_param_of_run)
-        #recalculate run to hours
-        #run_time_in_hours=recalculate_time_to_hours(RunTime)
-        #calculate the times
-        #total_requested_RAM_time+=requested_RAM*run_time_in_hours
-        #total_requested_CPU_time+=requested_CPUs*run_time_in_hours
+
     df = pd.DataFrame(list_for_df)
     print(df)
-    # now = datetime.datetime.now()
-    # start_of_year=datetime.datetime(2024, 1, 1)
-    # hours=(now-start_of_year).total_seconds()//3600
-    # average_requested_RAM=total_requested_RAM_time/hours
-    # average_requested_CPU=total_requested_CPU_time/hours
-    # print(f"average RAM usage {average_requested_RAM:.2f},average CPU usage {average_requested_CPU:.2f}")
 
 if __name__ == "__main__":
     main()
