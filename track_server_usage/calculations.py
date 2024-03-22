@@ -61,12 +61,16 @@ def calculate_amount_of_hours_in_months(date_of_start_month, date_of_end_month) 
     hours = (date_of_end_month - date_of_start_month).total_seconds() // 3600
     return hours
 
+#function to make a pichart of a certain month and users
+
+
+
 
 def main():
     """Main function of this module"""
     # check if the directory has only .record files
     # step 1: parse the file and put accession num, organism name and dna sequence in a nested dict
-    df = pd.DataFrame(list_for_df)
+    df = dataframe
     date_of_start_month, date_of_end_month=make_dates_from_months(3, 3, 2024)
     total_requested_RAM_time=average_RAM_usage(df,date_of_start_month,date_of_end_month)
     total_requested_CPU_time=average_CPU_usage(df, date_of_start_month, date_of_end_month)
