@@ -80,9 +80,5 @@ def main():
         mask = df['UserID'].isin(i)
         df_users = df[mask]
 
-
-
-
-
 if __name__ == "__main__":
     main()
