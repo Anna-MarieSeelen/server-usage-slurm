@@ -5,18 +5,6 @@ Description: Takes a file with MassQL queries, searches for spectra in json file
 these spectra to individual files in mgf-style.
 Usage: python3 massql_search_spectra_with_motif.py *path_to_file_with_motifs_queries*
 
-    path_to_file_with_motifs_queries: a tab separated file with a selected motif, feature list and massql query on each
-    line (output from make_pdf_with_smiles.py)
-    pickle_file_with_gnps_all_positive_MS/MS_spectra: path to pickle file which is in:
-    /mnt/LTR_userdata/hooft001/mass_spectral_embeddings/datasets/GNPS_15_12_21/ALL_GNPS_15_12_2021_positive_annotated.pickle
-    path_to_store_spectrum_files: folder where all the mgf-formatted text files with spectra will be stored that contain
-    a selected motif (determined by MassQL)
-    path_to_store_match_files: folder where per Mass2Motif query a file will be stored containing the amount of massql
-    matches and the smiles of each selected library spectrum
-    path_to_store_mgf_file_and_name: the path and the file name that you want for the mgf-formatted MS/MS spectra from
-    GNPS
-    path_to_store_json_file_and_name: the path and the file name that you want for the json MS/MS spectra from
-    GNPS
 """
 from sys import argv
 import os.path
