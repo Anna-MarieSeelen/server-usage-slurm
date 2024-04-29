@@ -8,7 +8,7 @@ authors:
     given-names: Anna-Marie
     orcid: "https://orcid.org/0000-0002-4740-6564"
 date-released: 2024-04-29
-doi: <insert your DOI here>
+# doi: <insert your DOI here> commented this out because repo is not attached to publication
 version: "0.1.0"
 repository-code: "https://github.com/Anna-MarieSeelen/server-usage-slurm"
 keywords:
