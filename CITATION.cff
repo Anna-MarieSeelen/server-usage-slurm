@@ -7,7 +7,7 @@ authors:
     family-names: Seelen
     given-names: Anna-Marie
     orcid: "https://orcid.org/0000-0000-0000-0000"
-date-released: 20??-MM-DD
+date-released: 2024-04-29
 doi: <insert your DOI here>
 version: "0.1.0"
 repository-code: "https://github.com/Anna-MarieSeelen/server-usage-slurm"
