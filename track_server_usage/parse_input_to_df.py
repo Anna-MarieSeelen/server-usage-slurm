@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""
-Author: Anna-Marie Seelen
+"""Author: Anna-Marie Seelen
 Description: Takes a file with MassQL queries, searches for spectra in json file that contain the queries and writes
 these spectra to individual files in mgf-style.
 Usage: python3 massql_search_spectra_with_motif.py *path_to_file_with_motifs_queries*
 """
 
 # import statements
-from sys import argv
+import datetime
+import glob
 import os.path
 import re
-import datetime
+from sys import argv
 import pandas as pd
-import glob
+
 
 # functions
 def parse_input_file(slurm_record_filepath: str) -> tuple:
