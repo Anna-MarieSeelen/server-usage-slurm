@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
-"""
-Author: Anna-Marie Seelen
+"""Author: Anna-Marie Seelen
 Description: Takes a file with MassQL queries, searches for spectra in json file that contain the queries and writes
 these spectra to individual files in mgf-style.
 Usage: python3 massql_search_spectra_with_motif.py *path_to_file_with_motifs_queries*
 
 """
-from sys import argv
-import os.path
 import datetime
-import pandas as pd
 import glob
-from parse_input_to_df import recalculate_to_GB, parse_input_file_for_recalculation, parse_input_file, parse_input_file_time_parameters, recalculate_time_to_hours
+import os.path
+from sys import argv
+import pandas as pd
 from calculations import *
+from parse_input_to_df import parse_input_file
+from parse_input_to_df import parse_input_file_for_recalculation
+from parse_input_to_df import parse_input_file_time_parameters
+from parse_input_to_df import recalculate_time_to_hours
+from parse_input_to_df import recalculate_to_GB
+
 
 def main():
     """Main function of this module"""
